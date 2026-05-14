@@ -17,7 +17,30 @@ import Compliance from './pages/Compliance';
 import QualityControl from './pages/QualityControl';
 import Analytics from './pages/Analytics';
 import FleetAgents from './pages/FleetAgents';
+import ShipmentMap from './pages/ShipmentMap';
+import WeeklyPlan from './pages/WeeklyPlan';
+import AIUsageStats from './pages/AIUsageStats';
+import PredictQualityIssues from './pages/PredictQualityIssues';
+import OptimizeNetwork from './pages/OptimizeNetwork';
+import OptimizeLastMile from './pages/OptimizeLastMile';
 import Sidebar from './components/Sidebar';
+// === Batch 08 Gaps & Frontend Mounts ===
+import CfPredictiveQualityIssuesFlaggingSuppliersRoutesWith from './pages/CfPredictiveQualityIssuesFlaggingSuppliersRoutesWith'
+import CfNetworkOptimizationRecommendingFacilitySourcingLocations from './pages/CfNetworkOptimizationRecommendingFacilitySourcingLocations'
+import CfLastMileDeliveryOptimizationWithRouteAnd from './pages/CfLastMileDeliveryOptimizationWithRouteAnd'
+import CfBlockchainTraceabilityForHighValueRegulatedShipments from './pages/CfBlockchainTraceabilityForHighValueRegulatedShipments'
+import CfSupplierCollaborationPortalWithExceptionEscalation from './pages/CfSupplierCollaborationPortalWithExceptionEscalation'
+import CfIotSensorStreamIngestionForColdChain from './pages/CfIotSensorStreamIngestionForColdChain'
+import GapNoAiDrivenNetworkOptimizationFacilitySourcing from './pages/GapNoAiDrivenNetworkOptimizationFacilitySourcing'
+import GapNoPredictiveQualityScoring from './pages/GapNoPredictiveQualityScoring'
+import GapNoAiDrivenFreightCostOptimization from './pages/GapNoAiDrivenFreightCostOptimization'
+import GapNoIotSensorIngestionTemperatureHumidityFor from './pages/GapNoIotSensorIngestionTemperatureHumidityFor'
+import GapNoCustomerPortalForShipmentVisibility from './pages/GapNoCustomerPortalForShipmentVisibility'
+import GapNo3plIntegration from './pages/GapNo3plIntegration'
+import GapNoFreightCostAnalytics from './pages/GapNoFreightCostAnalytics'
+import GapNoWebhooksOrExternalNotifications from './pages/GapNoWebhooksOrExternalNotifications'
+import GapNoAuditLog from './pages/GapNoAuditLog'
+import GapNoMultiTenantOperatorSeparation from './pages/GapNoMultiTenantOperatorSeparation'
 
 const appStyles = `
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -63,7 +86,24 @@ function App() {
         {!isAuthenticated ? (
           <Routes>
             <Route path="/login" element={<Login onLogin={handleLogin} />} />
-            <Route path="*" element={<Navigate to="/login" />} />
+            {/* // === Batch 08 Gaps & Frontend Mounts === */}
+      <Route path="/cf-predictive-quality-issues-flagging-suppliers-routes-with-quality" element={<ProtectedRoute><CfPredictiveQualityIssuesFlaggingSuppliersRoutesWith /></ProtectedRoute>} />
+      <Route path="/cf-network-optimization-recommending-facility-sourcing-locations" element={<ProtectedRoute><CfNetworkOptimizationRecommendingFacilitySourcingLocations /></ProtectedRoute>} />
+      <Route path="/cf-last-mile-delivery-optimization-with-route-and-consolidation-recommendations" element={<ProtectedRoute><CfLastMileDeliveryOptimizationWithRouteAnd /></ProtectedRoute>} />
+      <Route path="/cf-blockchain-traceability-for-high-value-regulated-shipments" element={<ProtectedRoute><CfBlockchainTraceabilityForHighValueRegulatedShipments /></ProtectedRoute>} />
+      <Route path="/cf-supplier-collaboration-portal-with-exception-escalation" element={<ProtectedRoute><CfSupplierCollaborationPortalWithExceptionEscalation /></ProtectedRoute>} />
+      <Route path="/cf-iot-sensor-stream-ingestion-for-cold-chain-compliance" element={<ProtectedRoute><CfIotSensorStreamIngestionForColdChain /></ProtectedRoute>} />
+      <Route path="/gap-no-ai-driven-network-optimization-facility-sourcing-point-placement" element={<ProtectedRoute><GapNoAiDrivenNetworkOptimizationFacilitySourcing /></ProtectedRoute>} />
+      <Route path="/gap-no-predictive-quality-scoring" element={<ProtectedRoute><GapNoPredictiveQualityScoring /></ProtectedRoute>} />
+      <Route path="/gap-no-ai-driven-freight-cost-optimization" element={<ProtectedRoute><GapNoAiDrivenFreightCostOptimization /></ProtectedRoute>} />
+      <Route path="/gap-no-iot-sensor-ingestion-temperature-humidity-for-cold" element={<ProtectedRoute><GapNoIotSensorIngestionTemperatureHumidityFor /></ProtectedRoute>} />
+      <Route path="/gap-no-customer-portal-for-shipment-visibility" element={<ProtectedRoute><GapNoCustomerPortalForShipmentVisibility /></ProtectedRoute>} />
+      <Route path="/gap-no-3pl-integration" element={<ProtectedRoute><GapNo3plIntegration /></ProtectedRoute>} />
+      <Route path="/gap-no-freight-cost-analytics" element={<ProtectedRoute><GapNoFreightCostAnalytics /></ProtectedRoute>} />
+      <Route path="/gap-no-webhooks-or-external-notifications" element={<ProtectedRoute><GapNoWebhooksOrExternalNotifications /></ProtectedRoute>} />
+      <Route path="/gap-no-audit-log" element={<ProtectedRoute><GapNoAuditLog /></ProtectedRoute>} />
+      <Route path="/gap-no-multi-tenant-operator-separation" element={<ProtectedRoute><GapNoMultiTenantOperatorSeparation /></ProtectedRoute>} />
+      <Route path="*" element={<Navigate to="/login" />} />
           </Routes>
         ) : (
           <div style={{ display: 'flex', minHeight: '100vh' }}>
@@ -84,6 +124,12 @@ function App() {
                 <Route path="/quality" element={<QualityControl />} />
                 <Route path="/analytics" element={<Analytics />} />
                 <Route path="/fleet-agents" element={<FleetAgents />} />
+                <Route path="/shipment-map" element={<ShipmentMap />} />
+                <Route path="/weekly-plan" element={<WeeklyPlan />} />
+                <Route path="/ai-usage" element={<AIUsageStats />} />
+                <Route path="/predict-quality" element={<PredictQualityIssues />} />
+                <Route path="/optimize-network" element={<OptimizeNetwork />} />
+                <Route path="/optimize-last-mile" element={<OptimizeLastMile />} />
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>
             </main>

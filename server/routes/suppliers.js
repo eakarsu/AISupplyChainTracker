@@ -4,8 +4,23 @@ const pool = require('../db');
 
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM suppliers ORDER BY created_at DESC');
-    res.json(result.rows);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+
+    const [result, count] = await Promise.all([
+      pool.query('SELECT * FROM suppliers ORDER BY created_at DESC LIMIT $1 OFFSET $2', [limit, offset]),
+      pool.query('SELECT COUNT(*) FROM suppliers')
+    ]);
+
+    res.json({
+      data: result.rows,
+      pagination: {
+        page, limit,
+        total: parseInt(count.rows[0].count),
+        totalPages: Math.ceil(parseInt(count.rows[0].count) / limit)
+      }
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });

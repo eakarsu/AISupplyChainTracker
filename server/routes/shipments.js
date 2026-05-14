@@ -2,10 +2,67 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 
+// GET /api/shipments with pagination
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM shipments ORDER BY created_at DESC');
-    res.json(result.rows);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+
+    const [result, count] = await Promise.all([
+      pool.query('SELECT * FROM shipments ORDER BY created_at DESC LIMIT $1 OFFSET $2', [limit, offset]),
+      pool.query('SELECT COUNT(*) FROM shipments')
+    ]);
+
+    res.json({
+      data: result.rows,
+      pagination: {
+        page, limit,
+        total: parseInt(count.rows[0].count),
+        totalPages: Math.ceil(parseInt(count.rows[0].count) / limit)
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// GET /api/shipments/map-data - returns shipments with lat/lng for map
+router.get('/map-data', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM shipments WHERE status != $1 ORDER BY created_at DESC LIMIT 100', ['cancelled']);
+
+    // Add simulated lat/lng based on location names (in production would use geocoding API)
+    const locationCoords = {
+      'new york': [40.7128, -74.0060], 'los angeles': [34.0522, -118.2437],
+      'chicago': [41.8781, -87.6298], 'houston': [29.7604, -95.3698],
+      'london': [51.5074, -0.1278], 'paris': [48.8566, 2.3522],
+      'berlin': [52.5200, 13.4050], 'tokyo': [35.6762, 139.6503],
+      'beijing': [39.9042, 116.4074], 'shanghai': [31.2304, 121.4737],
+      'singapore': [1.3521, 103.8198], 'dubai': [25.2048, 55.2708],
+      'sydney': [-33.8688, 151.2093], 'toronto': [43.6532, -79.3832],
+      'default': [0, 0]
+    };
+
+    const getCoords = (location) => {
+      if (!location) return locationCoords.default;
+      const key = Object.keys(locationCoords).find(k => location.toLowerCase().includes(k));
+      return key ? locationCoords[key] : [
+        (Math.random() * 160 - 80),
+        (Math.random() * 360 - 180)
+      ];
+    };
+
+    const mapData = result.rows.map(s => ({
+      ...s,
+      origin_lat: getCoords(s.origin)[0],
+      origin_lng: getCoords(s.origin)[1],
+      dest_lat: getCoords(s.destination)[0],
+      dest_lng: getCoords(s.destination)[1]
+    }));
+
+    res.json({ shipments: mapData, count: mapData.length });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });

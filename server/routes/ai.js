@@ -2,22 +2,58 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const pool = require('../db');
+const rateLimit = require('express-rate-limit');
+const NodeCache = require('node-cache');
+const crypto = require('crypto');
 require('dotenv').config({ path: '../.env' });
 
 const OPENROUTER_URL = process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1';
 const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
-const MODEL = process.env.OPENROUTER_MODEL || 'anthropic/claude-haiku-4.5';
+const MODEL = 'anthropic/claude-3-5-sonnet-20241022';
 
-async function callAI(prompt) {
+// 15-minute AI response cache
+const aiCache = new NodeCache({ stdTTL: 900 });
+
+// Rate limiter: 20 AI calls per hour per user
+const aiRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  keyGenerator: (req) => req.user ? 'user:' + (req.user.id || req.user.userId) : req.ip,
+  message: { error: 'Too many AI requests, please try again later.' }
+});
+
+function parseAIJson(content) {
+  try { return JSON.parse(content); } catch {}
+  try {
+    const stripped = content.replace(/```(?:json)?\s*/g, '').replace(/```/g, '').trim();
+    return JSON.parse(stripped);
+  } catch {}
+  try {
+    const first = content.indexOf('{');
+    const last = content.lastIndexOf('}');
+    if (first !== -1 && last !== -1) return JSON.parse(content.slice(first, last + 1));
+  } catch {}
+  return null;
+}
+
+async function callAI(prompt, useCache = true) {
+  const cacheKey = crypto.createHash('md5').update(prompt).digest('hex');
+  if (useCache) {
+    const cached = aiCache.get(cacheKey);
+    if (cached) return { content: cached, fromCache: true };
+  }
+
+  if (!OPENROUTER_KEY) {
+    const err = new Error('AI service unavailable: OPENROUTER_API_KEY is not configured');
+    err.status = 503;
+    throw err;
+  }
+
+  const startTime = Date.now();
   try {
     const response = await axios.post(
       `${OPENROUTER_URL}/chat/completions`,
-      {
-        model: MODEL,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 2000,
-        temperature: 0.7,
-      },
+      { model: MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: 2000, temperature: 0.7 },
       {
         headers: {
           'Authorization': `Bearer ${OPENROUTER_KEY}`,
@@ -25,17 +61,34 @@ async function callAI(prompt) {
           'HTTP-Referer': 'http://localhost:3000',
           'X-Title': 'AI Supply Chain Tracker',
         },
+        timeout: 30000
       }
     );
-    return response.data.choices[0].message.content;
+    const content = response.data.choices[0].message.content;
+    const tokens = response.data.usage?.total_tokens;
+    const latency = Date.now() - startTime;
+
+    if (useCache) aiCache.set(cacheKey, content);
+    return { content, tokens, latency, fromCache: false };
   } catch (err) {
     console.error('AI API Error:', err.response?.data || err.message);
-    throw new Error(err.response?.data?.error?.message || 'AI service unavailable');
+    throw new Error('AI service unavailable');
+  }
+}
+
+async function persistAIResult(userId, endpoint, inputData, result, tokens, latency) {
+  try {
+    await pool.query(
+      'INSERT INTO ai_results (user_id, endpoint, input_data, result, tokens_used, latency_ms) VALUES ($1, $2, $3, $4, $5, $6)',
+      [userId, endpoint, JSON.stringify(inputData), JSON.stringify(result), tokens || null, latency || null]
+    );
+  } catch (err) {
+    console.error('Failed to persist AI result:', err.message);
   }
 }
 
 // Disruption Prediction
-router.post('/predict-disruption', async (req, res) => {
+router.post('/predict-disruption', aiRateLimiter, async (req, res) => {
   try {
     const { region, supplierData, context } = req.body;
     let dataContext = '';
@@ -45,32 +98,25 @@ router.post('/predict-disruption', async (req, res) => {
       dataContext = `Current disruptions: ${JSON.stringify(disruptions.rows)}\nSuppliers in region: ${JSON.stringify(suppliers.rows)}`;
     }
 
-    const prompt = `You are a supply chain disruption prediction AI analyst. Analyze the following data and predict potential disruptions.
+    const prompt = `You are a supply chain disruption prediction AI. Analyze data and return structured JSON.
 
 ${context || dataContext}
 ${region ? `Focus region: ${region}` : ''}
-${supplierData ? `Supplier context: ${supplierData}` : ''}
 
-Provide your analysis in the following structured format:
-1. **Risk Assessment**: Overall risk level (Low/Medium/High/Critical) with explanation
-2. **Predicted Disruptions**: List 3-5 potential disruptions with probability percentages
-3. **Impact Analysis**: How each disruption could affect the supply chain
-4. **Recommended Actions**: Specific mitigation strategies for each risk
-5. **Timeline**: Expected timeframe for each predicted disruption
-6. **Confidence Score**: Your confidence in this prediction (0-100%)
+Return JSON: { "risk_level": "low|medium|high|critical", "risk_score": 0, "predicted_disruptions": [{ "type": "", "probability": 0, "impact": "", "timeline": "", "mitigation": "" }], "recommended_actions": [], "confidence_score": 0 }`;
 
-Be specific, data-driven, and actionable in your recommendations.`;
+    const { content, tokens, latency } = await callAI(prompt);
+    const parsed = parseAIJson(content) || { raw: content };
+    await persistAIResult(req.user?.id, 'predict-disruption', { region }, parsed, tokens, latency);
 
-    const aiResponse = await callAI(prompt);
-    res.json({ analysis: aiResponse, type: 'disruption_prediction', timestamp: new Date().toISOString() });
+    res.json({ analysis: content, parsed, type: 'disruption_prediction', timestamp: new Date().toISOString() });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'AI service error' });
   }
 });
 
 // Supplier Risk Assessment
-router.post('/assess-supplier-risk', async (req, res) => {
+router.post('/assess-supplier-risk', aiRateLimiter, async (req, res) => {
   try {
     const { supplierId, context } = req.body;
     let dataContext = '';
@@ -83,32 +129,24 @@ router.post('/assess-supplier-risk', async (req, res) => {
       dataContext = `Top risk suppliers: ${JSON.stringify(suppliers.rows)}`;
     }
 
-    const prompt = `You are a supplier risk assessment AI. Analyze the following supplier data and provide a comprehensive risk assessment.
+    const prompt = `You are a supplier risk assessment AI. Return structured JSON.
 
 ${context || dataContext}
 
-Provide your analysis in the following structured format:
-1. **Overall Risk Rating**: Score out of 100 with color-coded level
-2. **Financial Risk**: Assessment of financial stability
-3. **Geopolitical Risk**: Country/region specific risks
-4. **Operational Risk**: Capacity and reliability concerns
-5. **Compliance Risk**: Regulatory and compliance issues
-6. **Recommendations**: Top 5 actionable recommendations
-7. **Alternative Suppliers**: Suggest backup supplier strategies
-8. **Monitoring Plan**: Key metrics to watch
+Return JSON: { "overall_risk_rating": 0, "risk_level": "low|medium|high|critical", "financial_risk": "", "geopolitical_risk": "", "operational_risk": "", "compliance_risk": "", "recommendations": [], "monitoring_metrics": [] }`;
 
-Be thorough and provide specific, actionable insights.`;
+    const { content, tokens, latency } = await callAI(prompt);
+    const parsed = parseAIJson(content) || { raw: content };
+    await persistAIResult(req.user?.id, 'assess-supplier-risk', { supplierId }, parsed, tokens, latency);
 
-    const aiResponse = await callAI(prompt);
-    res.json({ analysis: aiResponse, type: 'supplier_risk', timestamp: new Date().toISOString() });
+    res.json({ analysis: content, parsed, type: 'supplier_risk', timestamp: new Date().toISOString() });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'AI service error' });
   }
 });
 
 // Route Optimization
-router.post('/optimize-route', async (req, res) => {
+router.post('/optimize-route', aiRateLimiter, async (req, res) => {
   try {
     const { routeId, context } = req.body;
     let dataContext = '';
@@ -120,32 +158,24 @@ router.post('/optimize-route', async (req, res) => {
       dataContext = `Routes to optimize: ${JSON.stringify(routes.rows)}`;
     }
 
-    const prompt = `You are a logistics route optimization AI. Analyze the following shipping routes and provide optimization recommendations.
+    const prompt = `You are a logistics route optimization AI. Return structured JSON.
 
 ${context || dataContext}
 
-Provide your analysis in the following structured format:
-1. **Current Efficiency Score**: Rate the current route efficiency (0-100%)
-2. **Cost Optimization**: How to reduce shipping costs with specific percentages
-3. **Time Optimization**: How to reduce delivery times
-4. **Carbon Footprint Reduction**: Environmental impact improvements
-5. **Alternative Routes**: Suggest 3 alternative route options with pros/cons
-6. **Risk Mitigation**: How to handle route disruptions
-7. **Seasonal Adjustments**: Recommendations based on seasonal patterns
-8. **Estimated Savings**: Projected annual savings from optimizations
+Return JSON: { "efficiency_score": 0, "cost_savings_percent": 0, "time_savings_percent": 0, "alternative_routes": [{ "name": "", "pros": [], "cons": [], "estimated_cost": 0 }], "recommendations": [], "seasonal_adjustments": [] }`;
 
-Provide specific, data-driven recommendations with estimated impact percentages.`;
+    const { content, tokens, latency } = await callAI(prompt);
+    const parsed = parseAIJson(content) || { raw: content };
+    await persistAIResult(req.user?.id, 'optimize-route', { routeId }, parsed, tokens, latency);
 
-    const aiResponse = await callAI(prompt);
-    res.json({ analysis: aiResponse, type: 'route_optimization', timestamp: new Date().toISOString() });
+    res.json({ analysis: content, parsed, type: 'route_optimization', timestamp: new Date().toISOString() });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'AI service error' });
   }
 });
 
 // Demand Forecasting
-router.post('/forecast-demand', async (req, res) => {
+router.post('/forecast-demand', aiRateLimiter, async (req, res) => {
   try {
     const { productId, context } = req.body;
     let dataContext = '';
@@ -158,32 +188,24 @@ router.post('/forecast-demand', async (req, res) => {
       dataContext = `Recent forecasts: ${JSON.stringify(forecasts.rows)}`;
     }
 
-    const prompt = `You are a demand forecasting AI analyst. Analyze the following data and provide demand predictions.
+    const prompt = `You are a demand forecasting AI. Return structured JSON.
 
 ${context || dataContext}
 
-Provide your analysis in the following structured format:
-1. **Demand Trend**: Current direction (Growing/Stable/Declining) with percentage
-2. **30-Day Forecast**: Predicted demand for the next month with confidence interval
-3. **90-Day Forecast**: Predicted demand for the next quarter
-4. **Seasonal Patterns**: Identified seasonal influences
-5. **Market Factors**: External factors affecting demand
-6. **Inventory Recommendations**: Optimal stock levels to maintain
-7. **Risk Factors**: Potential demand disruption risks
-8. **Opportunity Areas**: Growth opportunities to capitalize on
+Return JSON: { "demand_trend": "growing|stable|declining", "growth_rate_percent": 0, "forecast_30d": { "quantity": 0, "confidence": 0 }, "forecast_90d": { "quantity": 0, "confidence": 0 }, "seasonal_patterns": [], "inventory_recommendations": [], "risk_factors": [] }`;
 
-Be specific with numbers and percentages where possible.`;
+    const { content, tokens, latency } = await callAI(prompt);
+    const parsed = parseAIJson(content) || { raw: content };
+    await persistAIResult(req.user?.id, 'forecast-demand', { productId }, parsed, tokens, latency);
 
-    const aiResponse = await callAI(prompt);
-    res.json({ analysis: aiResponse, type: 'demand_forecast', timestamp: new Date().toISOString() });
+    res.json({ analysis: content, parsed, type: 'demand_forecast', timestamp: new Date().toISOString() });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'AI service error' });
   }
 });
 
 // General Supply Chain Analysis
-router.post('/analyze', async (req, res) => {
+router.post('/analyze', aiRateLimiter, async (req, res) => {
   try {
     const { query, context } = req.body;
     let dataContext = '';
@@ -196,22 +218,24 @@ router.post('/analyze', async (req, res) => {
       dataContext = `Supply chain overview: ${JSON.stringify({ shipments: shipments.rows[0], suppliers: suppliers.rows[0], disruptions: disruptions.rows[0] })}`;
     }
 
-    const prompt = `You are an AI supply chain analyst. ${query || 'Provide a comprehensive analysis of the current supply chain status.'}
+    const prompt = `You are an AI supply chain analyst. ${query || 'Analyze the current supply chain status.'}
 
-Data context: ${context || dataContext}
+Data: ${context || dataContext}
 
-Provide a professional, insightful analysis with actionable recommendations. Format your response with clear sections using markdown-style headers (**bold**) and bullet points.`;
+Return JSON: { "health_score": 0, "key_findings": [], "risks": [], "opportunities": [], "immediate_actions": [], "kpis": { "on_time_delivery": 0, "supplier_reliability": 0, "inventory_health": 0 } }`;
 
-    const aiResponse = await callAI(prompt);
-    res.json({ analysis: aiResponse, type: 'general_analysis', timestamp: new Date().toISOString() });
+    const { content, tokens, latency } = await callAI(prompt);
+    const parsed = parseAIJson(content) || { raw: content };
+    await persistAIResult(req.user?.id, 'analyze', { query }, parsed, tokens, latency);
+
+    res.json({ analysis: content, parsed, type: 'general_analysis', timestamp: new Date().toISOString() });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'AI service error' });
   }
 });
 
 // Inventory Optimization
-router.post('/optimize-inventory', async (req, res) => {
+router.post('/optimize-inventory', aiRateLimiter, async (req, res) => {
   try {
     const { context } = req.body;
     let dataContext = '';
@@ -220,32 +244,24 @@ router.post('/optimize-inventory', async (req, res) => {
       dataContext = `Current inventory: ${JSON.stringify(inventory.rows)}`;
     }
 
-    const prompt = `You are an inventory optimization AI. Analyze the following inventory data and provide optimization recommendations.
+    const prompt = `You are an inventory optimization AI. Return structured JSON.
 
 ${context || dataContext}
 
-Provide your analysis in the following structured format:
-1. **Inventory Health Score**: Overall inventory health (0-100%)
-2. **Low Stock Alerts**: Items that need immediate restocking
-3. **Overstock Items**: Items with excess inventory
-4. **Reorder Recommendations**: Optimal reorder quantities and timing
-5. **Cost Optimization**: How to reduce carrying costs
-6. **ABC Analysis**: Categorize items by importance
-7. **Demand-Supply Alignment**: How well inventory matches demand
-8. **Action Items**: Top 5 immediate actions to take
+Return JSON: { "health_score": 0, "low_stock_alerts": [{ "item": "", "current": 0, "recommended": 0, "urgency": "high|medium|low" }], "overstock_items": [], "reorder_recommendations": [], "cost_savings_estimate": 0, "abc_analysis": { "a_items": [], "b_items": [], "c_items": [] } }`;
 
-Be specific with quantities and timelines.`;
+    const { content, tokens, latency } = await callAI(prompt);
+    const parsed = parseAIJson(content) || { raw: content };
+    await persistAIResult(req.user?.id, 'optimize-inventory', {}, parsed, tokens, latency);
 
-    const aiResponse = await callAI(prompt);
-    res.json({ analysis: aiResponse, type: 'inventory_optimization', timestamp: new Date().toISOString() });
+    res.json({ analysis: content, parsed, type: 'inventory_optimization', timestamp: new Date().toISOString() });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'AI service error' });
   }
 });
 
 // Warehouse Optimization
-router.post('/optimize-warehouse', async (req, res) => {
+router.post('/optimize-warehouse', aiRateLimiter, async (req, res) => {
   try {
     const { context } = req.body;
     let dataContext = '';
@@ -254,32 +270,24 @@ router.post('/optimize-warehouse', async (req, res) => {
       dataContext = `Warehouses: ${JSON.stringify(warehouses.rows)}`;
     }
 
-    const prompt = `You are a warehouse optimization AI. Analyze the following warehouse data and provide optimization recommendations.
+    const prompt = `You are a warehouse optimization AI. Return structured JSON.
 
 ${context || dataContext}
 
-Provide your analysis in the following structured format:
-1. **Utilization Score**: Overall warehouse utilization efficiency (0-100%)
-2. **Capacity Alerts**: Warehouses nearing capacity or underutilized
-3. **Layout Optimization**: Suggestions for improving warehouse layouts
-4. **Inventory Distribution**: How to better distribute inventory across warehouses
-5. **Cost Reduction**: Ways to reduce warehousing costs
-6. **Automation Opportunities**: Where to implement automation
-7. **Safety & Compliance**: Warehouse safety recommendations
-8. **Action Plan**: Top 5 immediate improvements
+Return JSON: { "utilization_score": 0, "capacity_alerts": [], "layout_recommendations": [], "cost_reduction_opportunities": [], "automation_opportunities": [], "action_plan": [] }`;
 
-Be specific with percentages and actionable recommendations.`;
+    const { content, tokens, latency } = await callAI(prompt);
+    const parsed = parseAIJson(content) || { raw: content };
+    await persistAIResult(req.user?.id, 'optimize-warehouse', {}, parsed, tokens, latency);
 
-    const aiResponse = await callAI(prompt);
-    res.json({ analysis: aiResponse, type: 'warehouse_optimization', timestamp: new Date().toISOString() });
+    res.json({ analysis: content, parsed, type: 'warehouse_optimization', timestamp: new Date().toISOString() });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'AI service error' });
   }
 });
 
 // Compliance Analysis
-router.post('/analyze-compliance', async (req, res) => {
+router.post('/analyze-compliance', aiRateLimiter, async (req, res) => {
   try {
     const { context } = req.body;
     let dataContext = '';
@@ -288,32 +296,24 @@ router.post('/analyze-compliance', async (req, res) => {
       dataContext = `Compliance records: ${JSON.stringify(compliance.rows)}`;
     }
 
-    const prompt = `You are a supply chain compliance AI analyst. Analyze the following compliance data and provide recommendations.
+    const prompt = `You are a supply chain compliance AI. Return structured JSON.
 
 ${context || dataContext}
 
-Provide your analysis in the following structured format:
-1. **Compliance Health Score**: Overall compliance status (0-100%)
-2. **Critical Gaps**: Areas with compliance gaps requiring immediate attention
-3. **Expiring Certifications**: Certifications/audits due for renewal
-4. **Risk Areas**: Regulatory risks by region/category
-5. **Audit Recommendations**: Suggested audit priorities
-6. **Regulatory Updates**: Important regulatory changes to watch
-7. **Corrective Actions**: Required corrective measures
-8. **Compliance Roadmap**: 90-day improvement plan
+Return JSON: { "compliance_score": 0, "critical_gaps": [], "expiring_certifications": [], "risk_areas": [], "corrective_actions": [], "90_day_roadmap": [] }`;
 
-Be thorough and specific about regulatory requirements.`;
+    const { content, tokens, latency } = await callAI(prompt);
+    const parsed = parseAIJson(content) || { raw: content };
+    await persistAIResult(req.user?.id, 'analyze-compliance', {}, parsed, tokens, latency);
 
-    const aiResponse = await callAI(prompt);
-    res.json({ analysis: aiResponse, type: 'compliance_analysis', timestamp: new Date().toISOString() });
+    res.json({ analysis: content, parsed, type: 'compliance_analysis', timestamp: new Date().toISOString() });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'AI service error' });
   }
 });
 
 // Quality Analysis
-router.post('/analyze-quality', async (req, res) => {
+router.post('/analyze-quality', aiRateLimiter, async (req, res) => {
   try {
     const { context } = req.body;
     let dataContext = '';
@@ -322,27 +322,246 @@ router.post('/analyze-quality', async (req, res) => {
       dataContext = `Quality inspections: ${JSON.stringify(quality.rows)}`;
     }
 
-    const prompt = `You are a quality control AI analyst. Analyze the following inspection data and provide quality improvement recommendations.
+    const prompt = `You are a quality control AI analyst. Return structured JSON.
 
 ${context || dataContext}
 
-Provide your analysis in the following structured format:
-1. **Quality Score**: Overall quality rating (0-100%)
-2. **Defect Trends**: Patterns in defects and failure modes
-3. **Supplier Quality Ranking**: Quality performance by supplier
-4. **Root Cause Analysis**: Likely root causes for recurring defects
-5. **Process Improvements**: Recommended process changes
-6. **Inspection Optimization**: How to improve inspection efficiency
-7. **Cost of Quality**: Estimated cost impact of quality issues
-8. **Improvement Plan**: Prioritized quality improvement actions
+Return JSON: { "quality_score": 0, "defect_trends": [], "supplier_quality_ranking": [], "root_causes": [], "process_improvements": [], "cost_of_quality_estimate": 0 }`;
 
-Be data-driven and specific about defect patterns.`;
+    const { content, tokens, latency } = await callAI(prompt);
+    const parsed = parseAIJson(content) || { raw: content };
+    await persistAIResult(req.user?.id, 'analyze-quality', {}, parsed, tokens, latency);
 
-    const aiResponse = await callAI(prompt);
-    res.json({ analysis: aiResponse, type: 'quality_analysis', timestamp: new Date().toISOString() });
+    res.json({ analysis: content, parsed, type: 'quality_analysis', timestamp: new Date().toISOString() });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'AI service error' });
+  }
+});
+
+// Multi-Agent Weekly Plan (NEW)
+router.post('/weekly-plan', aiRateLimiter, async (req, res) => {
+  try {
+    // Fetch data for all agents in parallel
+    const [routes, inventory, demand, disruptions] = await Promise.all([
+      pool.query('SELECT * FROM shipping_routes ORDER BY cost_per_kg DESC LIMIT 5'),
+      pool.query('SELECT * FROM inventory ORDER BY quantity ASC LIMIT 10'),
+      pool.query('SELECT * FROM demand_forecasts ORDER BY created_at DESC LIMIT 5'),
+      pool.query('SELECT * FROM disruptions WHERE severity IN (\'high\', \'critical\') ORDER BY created_at DESC LIMIT 5')
+    ]);
+
+    // Call all three agents in parallel
+    const [routeResult, inventoryResult, demandResult] = await Promise.all([
+      callAI(`Route optimization agent: ${JSON.stringify(routes.rows)}. Provide top 3 route optimization actions for this week. Return JSON: { "route": { "top_actions": [], "expected_savings": 0, "priority_routes": [] } }`, false),
+      callAI(`Inventory management agent: ${JSON.stringify(inventory.rows)}. Provide top 3 inventory actions for this week. Return JSON: { "maintenance": { "reorder_items": [], "overstock_items": [], "estimated_cost": 0 } }`, false),
+      callAI(`Demand forecasting agent: ${JSON.stringify(demand.rows)}. Provide demand forecast for this week. Return JSON: { "exception": { "high_demand_items": [], "low_demand_items": [], "adjustments": [] } }`, false)
+    ]);
+
+    const routeParsed = parseAIJson(routeResult.content) || { route: { top_actions: [], expected_savings: 0 } };
+    const inventoryParsed = parseAIJson(inventoryResult.content) || { maintenance: { reorder_items: [] } };
+    const demandParsed = parseAIJson(demandResult.content) || { exception: { adjustments: [] } };
+
+    // Synthesize weekly plan
+    const synthPrompt = `You are a supply chain coordinator. Synthesize this weekly operations plan.
+
+Route Agent findings: ${JSON.stringify(routeParsed)}
+Inventory Agent findings: ${JSON.stringify(inventoryParsed)}
+Demand Agent findings: ${JSON.stringify(demandParsed)}
+Active disruptions: ${JSON.stringify(disruptions.rows)}
+
+Return a coordinated weekly operations plan as JSON: { "week_summary": "", "priority_actions": [{ "day": "", "action": "", "agent": "route|inventory|demand", "impact": "" }], "kpi_targets": { "cost_reduction": 0, "on_time_delivery": 0, "inventory_health": 0 }, "risk_flags": [], "executive_summary": "" }`;
+
+    const { content, tokens, latency } = await callAI(synthPrompt, false);
+    const weeklyPlan = parseAIJson(content) || { raw: content };
+
+    const fullPlan = {
+      weekly_plan: weeklyPlan,
+      agent_outputs: { route: routeParsed, inventory: inventoryParsed, demand: demandParsed }
+    };
+
+    await persistAIResult(req.user?.id, 'weekly-plan', { routeRows: routes.rows.length }, fullPlan, tokens, latency);
+    res.json({ plan: fullPlan, type: 'weekly_plan', timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: 'AI service error' });
+  }
+});
+
+// Supplier Scorecard (NEW)
+router.get('/supplier-scorecard/:id', aiRateLimiter, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [supplier, orders, alerts, quality] = await Promise.all([
+      pool.query('SELECT * FROM suppliers WHERE id = $1', [id]),
+      pool.query('SELECT * FROM purchase_orders WHERE supplier_id = $1 ORDER BY created_at DESC LIMIT 20', [id]).catch(() => ({ rows: [] })),
+      pool.query("SELECT * FROM risk_alerts WHERE affected_entity ILIKE '%' || (SELECT name FROM suppliers WHERE id = $1) || '%' LIMIT 10", [id]),
+      pool.query('SELECT * FROM quality_inspections WHERE supplier_id = $1 ORDER BY created_at DESC LIMIT 10', [id]).catch(() => ({ rows: [] }))
+    ]);
+
+    if (supplier.rows.length === 0) return res.status(404).json({ error: 'Supplier not found' });
+
+    const s = supplier.rows[0];
+    const orderRows = orders.rows;
+    const onTimeOrders = orderRows.filter(o => o.status === 'delivered').length;
+    const onTimeRate = orderRows.length > 0 ? Math.round((onTimeOrders / orderRows.length) * 100) : null;
+
+    const prompt = `Generate a monthly executive narrative for this supplier:
+Supplier: ${JSON.stringify(s)}
+Order history (${orderRows.length} orders, on-time rate: ${onTimeRate}%): ${JSON.stringify(orderRows.slice(0, 5))}
+Risk alerts: ${JSON.stringify(alerts.rows)}
+Quality inspections: ${JSON.stringify(quality.rows.slice(0, 5))}
+
+Return JSON: { "executive_narrative": "", "overall_score": 0, "on_time_rate": ${onTimeRate || 0}, "defect_rate": 0, "risk_score": ${s.risk_score || 0}, "trend": "improving|stable|declining", "recommendations": [], "strengths": [], "concerns": [] }`;
+
+    const { content, tokens, latency } = await callAI(prompt, false);
+    const scorecard = parseAIJson(content) || { raw: content };
+
+    await persistAIResult(req.user?.id, 'supplier-scorecard', { supplier_id: id }, scorecard, tokens, latency);
+    res.json({ supplier: s, scorecard, type: 'supplier_scorecard', timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: 'AI service error' });
+  }
+});
+
+// AI Usage Stats (NEW)
+router.get('/usage-stats', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        endpoint,
+        COUNT(*) AS call_count,
+        AVG(tokens_used) AS avg_tokens,
+        SUM(tokens_used) AS total_tokens,
+        AVG(latency_ms) AS avg_latency_ms,
+        MAX(created_at) AS last_called
+      FROM ai_results
+      WHERE user_id = $1
+      GROUP BY endpoint
+      ORDER BY call_count DESC
+    `, [req.user?.id]);
+
+    // Estimate costs (claude-3-5-sonnet: ~$3/1M input, $15/1M output - approx $9/1M avg)
+    const statsWithCost = result.rows.map(row => ({
+      ...row,
+      estimated_cost_usd: ((parseInt(row.total_tokens) || 0) * 9 / 1_000_000).toFixed(4)
+    }));
+
+    const total = await pool.query(
+      'SELECT SUM(tokens_used) as total_tokens, COUNT(*) as total_calls FROM ai_results WHERE user_id = $1',
+      [req.user?.id]
+    );
+
+    res.json({
+      per_endpoint: statsWithCost,
+      totals: {
+        total_calls: parseInt(total.rows[0].total_calls) || 0,
+        total_tokens: parseInt(total.rows[0].total_tokens) || 0,
+        estimated_total_cost_usd: (((parseInt(total.rows[0].total_tokens) || 0) * 9) / 1_000_000).toFixed(4)
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Predictive quality issues
+router.post('/predict-quality-issues', aiRateLimiter, async (req, res) => {
+  try {
+    const { supplierId, productCategory } = req.body;
+    const quality = await pool.query('SELECT * FROM quality_records ORDER BY created_at DESC LIMIT 30').catch(() => ({ rows: [] }));
+    const suppliers = await pool.query('SELECT name, country, risk_score, category FROM suppliers LIMIT 30').catch(() => ({ rows: [] }));
+
+    const prompt = `You are a supply chain quality risk analyst. Predict likely quality issues. Return JSON only.
+
+Quality records: ${JSON.stringify(quality.rows.slice(0, 15))}
+Suppliers: ${JSON.stringify(suppliers.rows.slice(0, 15))}
+Filter: supplierId=${supplierId || 'all'}, category=${productCategory || 'all'}
+
+Return JSON:
+{
+  "risk_level": "low|medium|high|critical",
+  "predicted_issues": [{"supplier_id": <id>, "issue": "...", "probability_pct": <0-100>, "expected_impact": "...", "lead_time_days": <number>}],
+  "preventive_actions": ["..."],
+  "watch_list": [<supplier_id>],
+  "summary": "..."
+}`;
+    const { content, tokens, latency } = await callAI(prompt);
+    const parsed = parseAIJson(content) || { raw: content };
+    await persistAIResult(req.user?.id, 'predict-quality-issues', { supplierId, productCategory }, parsed, tokens, latency);
+    res.json({ analysis: content, parsed, type: 'quality_prediction', timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: 'AI service error' });
+  }
+});
+
+// Network optimization — facility/sourcing point recommendations
+router.post('/optimize-network', aiRateLimiter, async (req, res) => {
+  try {
+    const { objective } = req.body;
+    const warehouses = await pool.query('SELECT * FROM warehouses LIMIT 30').catch(() => ({ rows: [] }));
+    const suppliers = await pool.query('SELECT name, country, category, risk_score FROM suppliers LIMIT 30').catch(() => ({ rows: [] }));
+    const shipments = await pool.query('SELECT origin, destination, status, transit_days FROM shipments ORDER BY created_at DESC LIMIT 50').catch(() => ({ rows: [] }));
+
+    const prompt = `You are a supply chain network designer. Recommend network changes (facility locations / sourcing points) to optimize for ${objective || 'cost & service balance'}. Return JSON only.
+
+Warehouses: ${JSON.stringify(warehouses.rows.slice(0, 10))}
+Suppliers: ${JSON.stringify(suppliers.rows.slice(0, 15))}
+Recent shipments: ${JSON.stringify(shipments.rows.slice(0, 20))}
+
+Return JSON:
+{
+  "current_network_score": <0-100>,
+  "recommendations": [{"action": "open|close|relocate|consolidate", "facility_or_supplier": "...", "rationale": "...", "estimated_savings_usd": <number>, "service_impact": "improved|neutral|degraded"}],
+  "single_source_risks": ["..."],
+  "expected_savings_pct": <0-100>,
+  "summary": "..."
+}`;
+    const { content, tokens, latency } = await callAI(prompt);
+    const parsed = parseAIJson(content) || { raw: content };
+    await persistAIResult(req.user?.id, 'optimize-network', { objective }, parsed, tokens, latency);
+    res.json({ analysis: content, parsed, type: 'network_optimization', timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: 'AI service error' });
+  }
+});
+
+// Last-mile delivery optimization
+router.post('/optimize-last-mile', aiRateLimiter, async (req, res) => {
+  try {
+    const { region, vehicleCount, serviceWindow, priority, constraints } = req.body || {};
+    const shipments = await pool.query(
+      "SELECT origin, destination, status, transit_days, weight_kg, priority FROM shipments WHERE status IN ('in_transit','out_for_delivery','pending') ORDER BY created_at DESC LIMIT 60"
+    ).catch(() => ({ rows: [] }));
+    const warehouses = await pool.query('SELECT name, location, capacity FROM warehouses LIMIT 20').catch(() => ({ rows: [] }));
+
+    const prompt = `You are a last-mile logistics optimizer. Plan an optimized last-mile delivery sequence and resource allocation. Return JSON only.
+
+Region: ${region || 'unspecified'}
+Available vehicles: ${vehicleCount || 'unspecified'}
+Service window: ${serviceWindow || '08:00-18:00'}
+Optimization priority: ${priority || 'cost & on-time balance'}
+Constraints: ${constraints || 'standard last-mile'}
+
+Active/pending shipments (${shipments.rows.length}): ${JSON.stringify(shipments.rows.slice(0, 25))}
+Warehouses (${warehouses.rows.length}): ${JSON.stringify(warehouses.rows.slice(0, 10))}
+
+Return JSON:
+{
+  "current_efficiency_score": <0-100>,
+  "recommended_routes": [{"vehicle_id": "<string>", "stops": [{"address":"...","eta":"HH:MM","priority":"high|med|low"}], "expected_distance_km": <number>, "expected_duration_min": <number>}],
+  "consolidation_opportunities": ["..."],
+  "delivery_window_optimizations": ["..."],
+  "expected_savings_pct": <0-100>,
+  "expected_on_time_rate_pct": <0-100>,
+  "carbon_reduction_kg": <number>,
+  "notes": ["..."],
+  "summary": "1-2 sentence executive summary"
+}`;
+    const { content, tokens, latency } = await callAI(prompt);
+    const parsed = parseAIJson(content) || { raw: content };
+    await persistAIResult(req.user?.id, 'optimize-last-mile', { region, vehicleCount, priority }, parsed, tokens, latency);
+    res.json({ analysis: content, parsed, type: 'last_mile_optimization', timestamp: new Date().toISOString() });
+  } catch (err) {
+    if (err.status === 503) return res.status(503).json({ error: err.message });
+    res.status(500).json({ error: 'AI service error' });
   }
 });
 

@@ -17,6 +17,9 @@ const menuItems = [
   { path: '/quality', label: 'Quality Control', icon: FiCheckCircle },
   { path: '/analytics', label: 'Analytics', icon: FiBarChart2 },
   { path: '/fleet-agents', label: 'Fleet Agents', icon: FiTruck },
+  { path: '/predict-quality', label: 'Predict Quality Issues', icon: FiAlertTriangle },
+  { path: '/optimize-network', label: 'Network Optimization', icon: FiMap },
+  { path: '/optimize-last-mile', label: 'Last-Mile Optimization', icon: FiTruck },
 ];
 
 const styles = {
