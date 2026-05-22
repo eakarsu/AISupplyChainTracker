@@ -23,7 +23,11 @@ import AIUsageStats from './pages/AIUsageStats';
 import PredictQualityIssues from './pages/PredictQualityIssues';
 import OptimizeNetwork from './pages/OptimizeNetwork';
 import OptimizeLastMile from './pages/OptimizeLastMile';
+import DetentionDemurrageExposure from './pages/DetentionDemurrageExposure';
 import Sidebar from './components/Sidebar';
+import CodexCustomVizFeature from './pages/CodexCustomVizFeature';
+import CodexOperationsFeature from './pages/CodexOperationsFeature';
+
 // === Batch 08 Gaps & Frontend Mounts ===
 import CfPredictiveQualityIssuesFlaggingSuppliersRoutesWith from './pages/CfPredictiveQualityIssuesFlaggingSuppliersRoutesWith'
 import CfNetworkOptimizationRecommendingFacilitySourcingLocations from './pages/CfNetworkOptimizationRecommendingFacilitySourcingLocations'
@@ -85,6 +89,9 @@ function App() {
       <Router>
         {!isAuthenticated ? (
           <Routes>
+        <Route path="/codex/custom-viz" element={<CodexCustomVizFeature />} />
+        <Route path="/codex/operations" element={<CodexOperationsFeature />} />
+
             <Route path="/login" element={<Login onLogin={handleLogin} />} />
             {/* // === Batch 08 Gaps & Frontend Mounts === */}
       <Route path="/cf-predictive-quality-issues-flagging-suppliers-routes-with-quality" element={<ProtectedRoute><CfPredictiveQualityIssuesFlaggingSuppliersRoutesWith /></ProtectedRoute>} />
@@ -130,6 +137,7 @@ function App() {
                 <Route path="/predict-quality" element={<PredictQualityIssues />} />
                 <Route path="/optimize-network" element={<OptimizeNetwork />} />
                 <Route path="/optimize-last-mile" element={<OptimizeLastMile />} />
+                <Route path="/detention-demurrage-exposure" element={<DetentionDemurrageExposure />} />
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>
             </main>

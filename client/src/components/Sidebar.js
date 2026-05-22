@@ -20,6 +20,7 @@ const menuItems = [
   { path: '/predict-quality', label: 'Predict Quality Issues', icon: FiAlertTriangle },
   { path: '/optimize-network', label: 'Network Optimization', icon: FiMap },
   { path: '/optimize-last-mile', label: 'Last-Mile Optimization', icon: FiTruck },
+  { path: '/detention-demurrage-exposure', label: 'Detention Exposure', icon: FiAlertTriangle },
 ];
 
 const styles = {

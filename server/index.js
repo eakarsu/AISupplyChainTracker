@@ -66,6 +66,7 @@ app.use('/api/compliance', authMiddleware, require('./routes/compliance'));
 app.use('/api/quality', authMiddleware, require('./routes/quality'));
 app.use('/api/analytics', authMiddleware, require('./routes/analytics'));
 app.use('/api/fleet-agents', authMiddleware, require('./routes/fleetAgents'));
+app.use('/api/detention-demurrage-exposure', authMiddleware, require('./routes/detentionDemurrageExposure'));
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

@@ -75,7 +75,7 @@ router.post('/', async (req, res) => {
         axios.post(
           (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1') + '/chat/completions',
           {
-            model: 'anthropic/claude-3-5-sonnet-20241022',
+            model: process.env.OPENROUTER_MODEL || 'anthropic/claude-3-5-sonnet-20241022',
             messages: [{ role: 'user', content: `Assess this ${severity} disruption: ${title}. Region: ${region}. Description: ${description}. Provide brief risk assessment and top 3 mitigation actions. Return JSON: { "risk_assessment": "", "mitigation_actions": [], "estimated_impact": "" }` }],
             max_tokens: 500
           },

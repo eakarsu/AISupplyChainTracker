@@ -9,7 +9,7 @@ require('dotenv').config({ path: '../.env' });
 
 const OPENROUTER_URL = process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1';
 const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
-const MODEL = 'anthropic/claude-3-5-sonnet-20241022';
+const MODEL = process.env.OPENROUTER_MODEL || 'anthropic/claude-3-5-sonnet-20241022';
 
 // 15-minute AI response cache
 const aiCache = new NodeCache({ stdTTL: 900 });

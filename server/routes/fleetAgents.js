@@ -3,7 +3,7 @@ const axios = require('axios');
 const pool = require('../db');
 require('dotenv').config({ path: '../.env' });
 
-const MODEL = 'anthropic/claude-3-5-sonnet-20241022';
+const MODEL = process.env.OPENROUTER_MODEL || 'anthropic/claude-3-5-sonnet-20241022';
 
 function parseAIJson(content) {
   try { return JSON.parse(content); } catch {}
