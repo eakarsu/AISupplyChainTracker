@@ -62,11 +62,6 @@ function Login({ onLogin }) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const fillCredentials = () => {
-    setEmail('admin@supplychain.com');
-    setPassword('admin123');
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -108,16 +103,6 @@ function Login({ onLogin }) {
           </div>
           <button type="submit" style={{ ...styles.loginBtn, opacity: loading ? 0.7 : 1 }} disabled={loading}>
             {loading ? 'Signing In...' : 'Sign In'}
-          </button>
-          <div style={styles.divider}>
-            <div style={styles.line} />
-            <span>OR</span>
-            <div style={styles.line} />
-          </div>
-          <button type="button" style={styles.fillBtn} onClick={fillCredentials}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(59,130,246,0.2)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(59,130,246,0.1)'; }}>
-            Fill Demo Credentials
           </button>
         </form>
       </div>

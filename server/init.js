@@ -2,14 +2,11 @@ const { Pool } = require('pg');
 require('dotenv').config({ path: '../.env' });
 
 const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME || 'supply_chain_tracker',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
+  connectionString: process.env.DATABASE_URL,
 });
 
 async function init() {
+  if (process.env.ALLOW_SCHEMA_MIGRATION !== '1' || !process.env.DATABASE_URL) throw new Error('ALLOW_SCHEMA_MIGRATION=1 and DATABASE_URL are required');
   console.log('Running non-destructive schema init...');
 
   await pool.query(`

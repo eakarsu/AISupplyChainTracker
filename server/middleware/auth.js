@@ -7,7 +7,9 @@ const authMiddleware = (req, res, next) => {
     return res.status(401).json({ error: 'Access denied. No token provided.' });
   }
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if ((process.env.JWT_SECRET || '').length < 32) return res.status(503).json({ error: 'Secure authentication is not configured' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+    if (!decoded.tenantId || !decoded.role || !decoded.subjectIds) throw new Error('missing authorization context');
     req.user = decoded;
     next();
   } catch (err) {

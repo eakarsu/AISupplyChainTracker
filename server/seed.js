@@ -3,14 +3,18 @@ const bcrypt = require('bcryptjs');
 require('dotenv').config({ path: '../.env' });
 
 const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME || 'supply_chain_tracker',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
+  connectionString: process.env.DATABASE_URL,
 });
 
+function requireDestructiveSeed() {
+  if (process.env.ALLOW_DESTRUCTIVE_SEED !== '1') throw new Error('Set ALLOW_DESTRUCTIVE_SEED=1 to reset and seed the database');
+  if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required');
+  if ((process.env.SEED_ADMIN_PASSWORD || '').length < 12) throw new Error('SEED_ADMIN_PASSWORD must contain at least 12 characters');
+  return process.env.SEED_ADMIN_PASSWORD;
+}
+
 async function seed() {
+  const seedPassword = requireDestructiveSeed();
   console.log('🌱 Starting database seed...');
 
   // Drop and recreate tables
@@ -223,7 +227,7 @@ async function seed() {
   console.log('✅ Tables created');
 
   // Seed Users
-  const passwordHash = await bcrypt.hash('admin123', 10);
+  const passwordHash = await bcrypt.hash(seedPassword, 12);
   await pool.query(`INSERT INTO users (name, email, password_hash, role) VALUES ($1, $2, $3, $4)`,
     ['Admin User', 'admin@supplychain.com', passwordHash, 'admin']);
   console.log('✅ Users seeded');

@@ -1,155 +1,77 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# ============================================
-# AI Supply Chain Tracker - Start Script
-# ============================================
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_FILE="$ROOT_DIR/.env"
+API_DIR="$ROOT_DIR/server"
+UI_DIR="$ROOT_DIR/client"
+MIGRATION_DIR="$ROOT_DIR/server/migrations"
 
-set -e
+read_env() {
+  awk -F= -v key="$1" '$0 !~ /^[[:space:]]*#/ && $1 == key { value=substr($0,index($0,"=")+1); gsub(/^[[:space:]]+|[[:space:]]+$/, "", value); gsub(/^["\047]|["\047]$/, "", value); print value; exit }' "$ENV_FILE"
+}
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-PURPLE='\033[0;35m'
-CYAN='\033[0;36m'
-NC='\033[0m' # No Color
+load_env_key() {
+  local key="$1" parsed
+  [ -n "${!key-}" ] && return 0
+  [ -f "$ENV_FILE" ] || return 0
+  parsed="$(read_env "$key")"
+  [ -z "$parsed" ] || export "$key=$parsed"
+}
 
-echo -e "${CYAN}"
-echo "╔══════════════════════════════════════════════╗"
-echo "║     AI Supply Chain Tracker                  ║"
-echo "║     Starting Application...                  ║"
-echo "╚══════════════════════════════════════════════╝"
-echo -e "${NC}"
+for key in DATABASE_URL JWT_SECRET GOVERNANCE_TENANT_ID OPENROUTER_API_KEY ENABLE_GENERATED_FEATURES ALLOW_SCHEMA_MIGRATION ALLOW_DESTRUCTIVE_SEED BACKEND_PORT FRONTEND_PORT SEED_ADMIN_PASSWORD; do
+  load_env_key "$key"
+done
 
-# Load environment variables
-if [ -f .env ]; then
-  export $(cat .env | grep -v '^#' | xargs)
-  echo -e "${GREEN}✓ Environment variables loaded${NC}"
-else
-  echo -e "${RED}✗ .env file not found! Please create one.${NC}"
+BACKEND_PORT="${BACKEND_PORT:-3001}"
+FRONTEND_PORT="${FRONTEND_PORT:-3000}"
+
+fail() {
+  printf 'error: %s\n' "$*" >&2
   exit 1
-fi
-
-SERVER_PORT=${SERVER_PORT:-3001}
-CLIENT_PORT=${CLIENT_PORT:-3000}
-DB_NAME=${DB_NAME:-supply_chain_tracker}
-DB_USER=${DB_USER:-postgres}
-DB_PASSWORD=${DB_PASSWORD:-postgres}
-DB_HOST=${DB_HOST:-localhost}
-DB_PORT=${DB_PORT:-5432}
-
-# ============================================
-# Step 1: Clean up used ports
-# ============================================
-echo -e "\n${YELLOW}[1/6] Cleaning up ports...${NC}"
-
-cleanup_port() {
-  local port=$1
-  local pids=$(lsof -ti :$port 2>/dev/null || true)
-  if [ -n "$pids" ]; then
-    echo -e "  ${YELLOW}Killing processes on port $port: $pids${NC}"
-    echo "$pids" | xargs kill -9 2>/dev/null || true
-    sleep 1
-  fi
-  echo -e "  ${GREEN}✓ Port $port is free${NC}"
 }
 
-cleanup_port $SERVER_PORT
-cleanup_port $CLIENT_PORT
-
-# ============================================
-# Step 2: Check PostgreSQL
-# ============================================
-echo -e "\n${YELLOW}[2/6] Checking PostgreSQL...${NC}"
-
-if command -v pg_isready &> /dev/null; then
-  if pg_isready -h $DB_HOST -p $DB_PORT > /dev/null 2>&1; then
-    echo -e "  ${GREEN}✓ PostgreSQL is running${NC}"
-  else
-    echo -e "  ${YELLOW}Starting PostgreSQL...${NC}"
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-      brew services start postgresql@14 2>/dev/null || brew services start postgresql 2>/dev/null || true
-    else
-      sudo systemctl start postgresql 2>/dev/null || true
-    fi
-    sleep 2
-    echo -e "  ${GREEN}✓ PostgreSQL started${NC}"
-  fi
-else
-  echo -e "  ${YELLOW}⚠ pg_isready not found, assuming PostgreSQL is running${NC}"
-fi
-
-# ============================================
-# Step 3: Create database if not exists
-# ============================================
-echo -e "\n${YELLOW}[3/6] Setting up database...${NC}"
-
-PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -tc "SELECT 1 FROM pg_database WHERE datname = '$DB_NAME'" 2>/dev/null | grep -q 1 || \
-  PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -c "CREATE DATABASE $DB_NAME" 2>/dev/null || \
-  echo -e "  ${YELLOW}⚠ Could not create database (may already exist)${NC}"
-
-echo -e "  ${GREEN}✓ Database '$DB_NAME' ready${NC}"
-
-# ============================================
-# Step 4: Install dependencies
-# ============================================
-echo -e "\n${YELLOW}[4/6] Installing dependencies...${NC}"
-
-echo -e "  ${BLUE}Installing server dependencies...${NC}"
-cd server && npm install --silent 2>&1 | tail -1 && cd ..
-echo -e "  ${GREEN}✓ Server dependencies installed${NC}"
-
-echo -e "  ${BLUE}Installing client dependencies...${NC}"
-cd client && npm install --silent 2>&1 | tail -1 && cd ..
-echo -e "  ${GREEN}✓ Client dependencies installed${NC}"
-
-# ============================================
-# Step 5: Seed database
-# ============================================
-echo -e "\n${YELLOW}[5/6] Seeding database...${NC}"
-
-cd server && node seed.js && cd ..
-echo -e "  ${GREEN}✓ Database seeded with sample data${NC}"
-
-# ============================================
-# Step 6: Start application with hot reload
-# ============================================
-echo -e "\n${YELLOW}[6/6] Starting application...${NC}"
-echo ""
-echo -e "${CYAN}╔══════════════════════════════════════════════╗"
-echo -e "║  Server: http://localhost:$SERVER_PORT              ║"
-echo -e "║  Client: http://localhost:$CLIENT_PORT              ║"
-echo -e "║                                              ║"
-echo -e "║  Login:  admin@supplychain.com / admin123    ║"
-echo -e "║                                              ║"
-echo -e "║  Press Ctrl+C to stop all services           ║"
-echo -e "╚══════════════════════════════════════════════╝${NC}"
-echo ""
-
-# Trap to clean up on exit
-cleanup() {
-  echo -e "\n${YELLOW}Shutting down...${NC}"
-  kill $(jobs -p) 2>/dev/null || true
-  echo -e "${GREEN}✓ All services stopped${NC}"
-  exit 0
+check_config() {
+  local jwt_secret="${JWT_SECRET:-}"
+  command -v node >/dev/null || fail "node is required"
+  command -v npm >/dev/null || fail "npm is required"
+  [ -n "${DATABASE_URL:-}" ] || fail "DATABASE_URL is required"
+  [ -n "${GOVERNANCE_TENANT_ID:-}" ] || fail "GOVERNANCE_TENANT_ID is required"
+  [ "${#jwt_secret}" -ge 32 ] || fail "JWT_SECRET must contain at least 32 characters"
+  case "$DATABASE_URL" in
+    *example*|*changeme*|*password@*) fail "DATABASE_URL still contains a placeholder" ;;
+  esac
+  printf 'configuration valid for tenant %s\n' "$GOVERNANCE_TENANT_ID"
 }
-trap cleanup SIGINT SIGTERM
 
-# Get the project root directory
-PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+migrate() {
+  check_config
+  [ "${ALLOW_SCHEMA_MIGRATION:-0}" = "1" ] || fail "set ALLOW_SCHEMA_MIGRATION=1 for the explicit migration command"
+  command -v psql >/dev/null || fail "psql is required for migrations"
+  found=0
+  for migration in "$MIGRATION_DIR"/*.sql; do
+    [ -f "$migration" ] || continue
+    found=1
+    psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration"
+  done
+  [ "$found" = "1" ] || fail "no migrations found in $MIGRATION_DIR"
+}
 
-# Start server with nodemon for hot reload
-echo -e "${PURPLE}Starting server with hot reload (nodemon)...${NC}"
-(cd "$PROJECT_DIR/server" && npx nodemon index.js) &
-SERVER_PID=$!
+start_services() {
+  check_config
+  [ -d "$API_DIR/node_modules" ] || fail "backend dependencies are missing; install them explicitly"
+  [ -d "$UI_DIR/node_modules" ] || fail "frontend dependencies are missing; install them explicitly"
+  (cd "$API_DIR" && PORT="$BACKEND_PORT" node index.js) &
+  api_pid=$!
+  (cd "$UI_DIR" && BROWSER=none PORT="$FRONTEND_PORT" npm start) &
+  ui_pid=$!
+  trap 'kill "$api_pid" "$ui_pid" 2>/dev/null || true; wait "$api_pid" "$ui_pid" 2>/dev/null || true' INT TERM EXIT
+  wait "$api_pid" "$ui_pid"
+}
 
-sleep 2
-
-# Start client with React hot reload
-echo -e "${PURPLE}Starting client with hot reload...${NC}"
-(cd "$PROJECT_DIR/client" && PORT=$CLIENT_PORT BROWSER=none npm start) &
-CLIENT_PID=$!
-
-# Wait for both processes
-wait
+case "${1:-check}" in
+  check) check_config ;;
+  migrate) migrate ;;
+  start) start_services ;;
+  *) fail "usage: $0 {check|migrate|start}" ;;
+esac
