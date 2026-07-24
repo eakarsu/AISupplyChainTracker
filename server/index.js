@@ -42,7 +42,7 @@ app.use('/api/inventory', authMiddleware, require('./routes/inventory'));
 app.use('/api/alerts', authMiddleware, require('./routes/alerts'));
 app.use('/api/routes', authMiddleware, require('./routes/routeOptimization'));
 app.use('/api/demand', authMiddleware, require('./routes/demand'));
-if (generatedRoutesEnabled) app.use('/api/ai', authMiddleware, require('./routes/ai'));
+app.use('/api/ai', authMiddleware, require('./routes/ai'));
 app.use('/api/dashboard', authMiddleware, require('./routes/dashboard'));
 app.use('/api/orders', authMiddleware, require('./routes/orders'));
 app.use('/api/warehouses', authMiddleware, require('./routes/warehouses'));

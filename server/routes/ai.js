@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const pool = require('../db');
-const rateLimit = require('express-rate-limit');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 const NodeCache = require('node-cache');
 const crypto = require('crypto');
 require('dotenv').config({ path: '../.env' });
@@ -18,7 +18,7 @@ const aiCache = new NodeCache({ stdTTL: 900 });
 const aiRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 20,
-  keyGenerator: (req) => req.user ? 'user:' + (req.user.id || req.user.userId) : req.ip,
+  keyGenerator: (req) => req.user ? 'user:' + (req.user.id || req.user.userId) : ipKeyGenerator(req.ip),
   message: { error: 'Too many AI requests, please try again later.' }
 });
 
