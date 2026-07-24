@@ -55,6 +55,10 @@ const appStyles = `
   ::-webkit-scrollbar-thumb:hover { background: #64748b; }
 `;
 
+function ProtectedRoute({ children }) {
+  return localStorage.getItem('token') ? children : <Navigate to="/login" replace />;
+}
+
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
