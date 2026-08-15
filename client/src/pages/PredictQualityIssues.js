@@ -1,3 +1,4 @@
+import GeneratedAiResponse from './GeneratedAiResponse';
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import { FiAlertTriangle, FiCpu } from 'react-icons/fi';
@@ -113,7 +114,7 @@ export default function PredictQualityIssues() {
       {result && (
         <div style={styles.card}>
           <h3 style={{ color: '#f1f5f9', marginBottom: 12 }}>Risk Prediction</h3>
-          <pre style={styles.result}>{JSON.stringify(result, null, 2)}</pre>
+          <GeneratedAiResponse response={result} />
         </div>
       )}
     </div>

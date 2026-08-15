@@ -1,3 +1,4 @@
+import GeneratedAiResponse from './GeneratedAiResponse';
 // // === Batch 08 Gaps & Frontend Mounts ===
 // Feature: No customer portal for shipment visibility
 import { useState } from 'react'
@@ -60,7 +61,7 @@ export default function GapNoCustomerPortalForShipmentVisibility() {
       {result && (
         <div className="bg-white border border-slate-200 rounded-xl p-5 mb-4">
           <h2 className="font-semibold text-slate-800 mb-2">Result</h2>
-          <pre className="text-xs bg-slate-50 p-3 rounded overflow-x-auto whitespace-pre-wrap">{JSON.stringify(result, null, 2)}</pre>
+          <GeneratedAiResponse response={result} />
         </div>
       )}
       {history.length > 0 && (

@@ -1,3 +1,4 @@
+import GeneratedAiResponse from './GeneratedAiResponse';
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import { FiMap, FiCpu } from 'react-icons/fi';
@@ -119,7 +120,7 @@ export default function OptimizeNetwork() {
       {result && (
         <div style={styles.card}>
           <h3 style={{ color: '#f1f5f9', marginBottom: 12 }}>Recommendations</h3>
-          <pre style={styles.result}>{JSON.stringify(result, null, 2)}</pre>
+          <GeneratedAiResponse response={result} />
         </div>
       )}
     </div>
