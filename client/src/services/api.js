@@ -1,6 +1,11 @@
 import axios from 'axios';
 
-const API = axios.create({ baseURL: process.env.REACT_APP_API_URL || 'http://localhost:3001/api' });
+const configuredApiBase = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+const API = axios.create({
+  baseURL: configuredApiBase.endsWith('/api')
+    ? configuredApiBase
+    : `${configuredApiBase.replace(/\/$/, '')}/api`,
+});
 
 API.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
