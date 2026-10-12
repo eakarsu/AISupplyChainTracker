@@ -1,23 +1,25 @@
 import React, { useState } from 'react';
+import NativeAIControls from '../components/NativeAIControls.jsx';
+import AIReport from '../components/AIReport';
 
 const API_URL = 'http://localhost:3001/api';
 
-const renderResult = (obj, depth = 0) => {
-  if (!obj) return null;
-  if (typeof obj === 'string') return <p style={{ color: '#e0e0e0', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{obj}</p>;
-  if (Array.isArray(obj)) return <div style={{ marginLeft: depth * 12 }}>{obj.map((item, i) =>
-    <div key={i} style={{ background: '#0f172a', padding: 12, borderRadius: 8, marginBottom: 8, borderLeft: '3px solid #e94560' }}>
-      {typeof item === 'object' ? renderResult(item, depth + 1) : <span style={{ color: '#e0e0e0' }}>{String(item)}</span>}
-    </div>)}</div>;
-  return <div style={{ marginLeft: depth * 12 }}>{Object.entries(obj).map(([k, v]) =>
-    <div key={k} style={{ marginBottom: 12 }}>
-      <div style={{ color: '#e94560', fontSize: 13, fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 4 }}>{k.replace(/_/g, ' ')}</div>
-      {typeof v === 'object' && v !== null ? renderResult(v, depth + 1) :
-        <div style={{ color: '#e0e0e0', background: '#0f172a', padding: '8px 12px', borderRadius: 6, fontSize: 14 }}>
-          {typeof v === 'number' ? <span style={{ color: '#2ecc71', fontWeight: 'bold', fontSize: 18 }}>{v}</span> :
-           typeof v === 'boolean' ? <span style={{ color: v ? '#2ecc71' : '#e94560', fontWeight: 'bold' }}>{v ? 'Yes' : 'No'}</span> : String(v)}
-        </div>}
-    </div>)}</div>;
+const examples = {
+  'optimize-route': [
+    { origin: 'New York warehouse', destination: 'Boston distribution center', stops: 'Hartford; Worcester', vehicle_type: 'Delivery truck', constraints: 'Eight-hour driver shift; avoid low-clearance roads' },
+    { origin: 'Chicago depot', destination: 'Milwaukee hub', stops: 'Evanston; Waukegan', vehicle_type: 'Electric delivery van', constraints: 'Return with at least 20% battery; arrive by 17:00' },
+    { origin: 'Los Angeles warehouse', destination: 'San Diego hub', stops: 'Irvine; Oceanside', vehicle_type: 'Refrigerated truck', constraints: 'Preserve cold chain; prioritize time windows and rest breaks' },
+  ],
+  'predict-maintenance': [
+    { vehicle_type: 'Delivery van', mileage: '68000', last_maintenance: '2026-08-15', fuel_level: '62', age_years: '4' },
+    { vehicle_type: 'Semi-truck', mileage: '212000', last_maintenance: '2026-07-20', fuel_level: '38', age_years: '7' },
+    { vehicle_type: 'Refrigerated truck', mileage: '125000', last_maintenance: '2026-09-01', fuel_level: '74', age_years: '5' },
+  ],
+  'handle-exception': [
+    { exception_type: 'vehicle_breakdown', details: 'Delivery van stopped before its next appointment; dispatch needs a replacement and customer update.', current_location: 'Hartford, CT', deliveries_remaining: '5' },
+    { exception_type: 'weather_delay', details: 'Heavy rain has slowed the regional route; reassess arrival windows and safe routing.', current_location: 'Waukegan, IL', deliveries_remaining: '8' },
+    { exception_type: 'damaged_cargo', details: 'One pallet shows visible damage at transfer; isolate it and confirm the remaining delivery plan.', current_location: 'Irvine, CA', deliveries_remaining: '3' },
+  ],
 };
 
 export default function FleetAgents() {
@@ -25,6 +27,10 @@ export default function FleetAgents() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({});
+  const presets = ['Route review', 'Capacity review', 'Risk review'].map((name, index) => ({
+    name,
+    fill: () => { const values = examples[tab][index]; setForm(values); return { filled: Object.keys(values).length, manual: [] }; },
+  }));
 
   const run = async (endpoint, body) => {
     setLoading(true); setResult(null);
@@ -48,7 +54,7 @@ export default function FleetAgents() {
   const inp = { width: '100%', padding: 12, marginBottom: 12, background: '#0f172a', border: '1px solid #334155', borderRadius: 8, color: '#e0e0e0', fontSize: 14, boxSizing: 'border-box' };
 
   return (
-    <div>
+    <NativeAIControls busy={loading} context="fleet and logistics" presets={presets}><div>
       <h1 style={{ fontSize: 24, color: '#e0e0e0', marginBottom: 8 }}>🤖 Fleet & Logistics Agents</h1>
       <p style={{ color: '#888', marginBottom: 24 }}>AI-powered route optimization, maintenance prediction, and exception handling</p>
 
@@ -110,9 +116,9 @@ export default function FleetAgents() {
       {result && (
         <div style={{ background: '#1e293b', padding: 24, borderRadius: 12, border: '1px solid #e94560' }}>
           <h3 style={{ color: '#e94560', margin: '0 0 16px' }}>✨ AI Result</h3>
-          {renderResult(result)}
+          <AIReport response={result} title="Fleet agent result" />
         </div>
       )}
-    </div>
+    </div></NativeAIControls>
   );
 }

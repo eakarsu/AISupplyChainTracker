@@ -1,3 +1,4 @@
+import NativeAIControls from "../components/NativeAIControls.jsx";
 import GeneratedAiResponse from './GeneratedAiResponse';
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
@@ -81,7 +82,7 @@ export default function PredictQualityIssues() {
   };
 
   return (
-    <div style={styles.page}>
+    <NativeAIControls busy={loading} context="SupplyChainTracker"><div style={styles.page}>
       <h1 style={styles.title}><FiAlertTriangle color="#f59e0b" /> Predict Quality Issues</h1>
       <p style={styles.subtitle}>AI flags suppliers and routes with elevated quality risk based on historical patterns.</p>
 
@@ -89,20 +90,20 @@ export default function PredictQualityIssues() {
         <div style={styles.formGrid}>
           <div>
             <label style={styles.label}>Supplier ID (optional)</label>
-            <input style={styles.input} type="number" value={form.supplier_id} onChange={(e) => handleChange('supplier_id', e.target.value)} placeholder="e.g. 5" />
+            <input data-ai-field={"supplier_id"} style={styles.input} type="number" value={form.supplier_id} onChange={(e) => handleChange('supplier_id', e.target.value)} placeholder="e.g. 5" />
           </div>
           <div>
             <label style={styles.label}>Product / Category</label>
-            <input style={styles.input} type="text" value={form.product} onChange={(e) => handleChange('product', e.target.value)} placeholder="e.g. EV battery cells" />
+            <input data-ai-field={"product"} style={styles.input} type="text" value={form.product} onChange={(e) => handleChange('product', e.target.value)} placeholder="e.g. EV battery cells" />
           </div>
           <div>
             <label style={styles.label}>Historical Window (days)</label>
-            <input style={styles.input} type="number" min={7} max={730} value={form.historical_window_days} onChange={(e) => handleChange('historical_window_days', e.target.value)} />
+            <input data-ai-field={"historical_window_days"} style={styles.input} type="number" min={7} max={730} value={form.historical_window_days} onChange={(e) => handleChange('historical_window_days', e.target.value)} />
           </div>
         </div>
         <div style={{ marginTop: 14 }}>
           <label style={styles.label}>Notes / Context</label>
-          <textarea style={styles.textarea} rows={3} value={form.notes} onChange={(e) => handleChange('notes', e.target.value)} placeholder="Recent change in process, supplier change, etc." />
+          <textarea data-ai-field={"notes"} style={styles.textarea} rows={3} value={form.notes} onChange={(e) => handleChange('notes', e.target.value)} placeholder="Recent change in process, supplier change, etc." />
         </div>
         <button type="submit" style={{ ...styles.button, opacity: loading ? 0.6 : 1 }} disabled={loading}>
           <FiCpu /> {loading ? 'Predicting...' : 'Predict Quality Risk'}
@@ -117,6 +118,6 @@ export default function PredictQualityIssues() {
           <GeneratedAiResponse response={result} />
         </div>
       )}
-    </div>
+    </div></NativeAIControls>
   );
 }

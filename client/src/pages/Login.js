@@ -61,6 +61,8 @@ function Login({ onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const demoAvailable = process.env.REACT_APP_ENABLE_DEMO_CREDENTIAL_AUTOFILL === 'true'
+    && Boolean(process.env.REACT_APP_DEMO_EMAIL && process.env.REACT_APP_DEMO_PASSWORD);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -103,13 +105,13 @@ function Login({ onLogin }) {
           </div>
           <button
             type="button"
-            onClick={() => { setEmail(process.env.REACT_APP_DEMO_EMAIL || ''); setPassword(process.env.REACT_APP_DEMO_PASSWORD || ''); }}
-            disabled={!process.env.REACT_APP_DEMO_EMAIL || !process.env.REACT_APP_DEMO_PASSWORD}
-            aria-label="Auto Fill Demo Credentials"
-            style={{ width: '100%', marginBottom: '12px', padding: '10px 14px', borderRadius: '8px', border: '1px solid currentColor', background: 'transparent', cursor: 'pointer' }}
+            onClick={() => { setEmail(process.env.REACT_APP_DEMO_EMAIL); setPassword(process.env.REACT_APP_DEMO_PASSWORD); }}
+            disabled={loading || !demoAvailable}
+            style={styles.fillBtn}
           >
-            Auto Fill Demo Credentials
+            Fill demo credentials
           </button>
+          {!demoAvailable && <span style={{ color: '#94a3b8', fontSize: 12 }}>Demo credentials are not configured for this build.</span>}
           <button type="submit" style={{ ...styles.loginBtn, opacity: loading ? 0.7 : 1 }} disabled={loading}>
             {loading ? 'Signing In...' : 'Sign In'}
           </button>

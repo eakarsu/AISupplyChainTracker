@@ -1,0 +1,114 @@
+[
+  {
+    "name": "CfBlockchainTraceabilityForHighValueRegulatedShipments",
+    "id": "cf-blockchain-traceability-for-high-value-regulated-shipments/history",
+    "title": "Blockchain traceability for high-value/regulated shipments",
+    "description": "Prepare a professional advisory report for blockchain traceability for high-value/regulated shipments using the brief and evidence you provide. Review the findings, assumptions, and action plan before applying changes.",
+    "samples": []
+  },
+  {
+    "name": "CfIotSensorStreamIngestionForColdChain",
+    "id": "cf-iot-sensor-stream-ingestion-for-cold-chain-compliance/history",
+    "title": "IoT sensor stream ingestion for cold-chain compliance",
+    "description": "Prepare a professional advisory report for iot sensor stream ingestion for cold-chain compliance using the brief and evidence you provide. Review the findings, assumptions, and action plan before applying changes.",
+    "samples": []
+  },
+  {
+    "name": "CfLastMileDeliveryOptimizationWithRouteAnd",
+    "id": "cf-last-mile-delivery-optimization-with-route-and-consolidation-recommendations/history",
+    "title": "Last-mile delivery optimization with route and consolidation recommendations",
+    "description": "Prepare a professional advisory report for last-mile delivery optimization with route and consolidation recommendations using the brief and evidence you provide. Review the findings, assumptions, and action plan before applying changes.",
+    "samples": []
+  },
+  {
+    "name": "CfNetworkOptimizationRecommendingFacilitySourcingLocations",
+    "id": "cf-network-optimization-recommending-facility-sourcing-locations/history",
+    "title": "Network optimization recommending facility/sourcing locations",
+    "description": "Prepare a professional advisory report for network optimization recommending facility/sourcing locations using the brief and evidence you provide. Review the findings, assumptions, and action plan before applying changes.",
+    "samples": []
+  },
+  {
+    "name": "CfPredictiveQualityIssuesFlaggingSuppliersRoutesWith",
+    "id": "cf-predictive-quality-issues-flagging-suppliers-routes-with-quality/history",
+    "title": "Predictive quality issues flagging suppliers/routes with quality risk",
+    "description": "Prepare a professional advisory report for predictive quality issues flagging suppliers/routes with quality risk using the brief and evidence you provide. Review the findings, assumptions, and action plan before applying changes.",
+    "samples": []
+  },
+  {
+    "name": "CfSupplierCollaborationPortalWithExceptionEscalation",
+    "id": "cf-supplier-collaboration-portal-with-exception-escalation/history",
+    "title": "Supplier collaboration portal with exception escalation",
+    "description": "Prepare a professional advisory report for supplier collaboration portal with exception escalation using the brief and evidence you provide. Review the findings, assumptions, and action plan before applying changes.",
+    "samples": []
+  },
+  {
+    "name": "GapNo3plIntegration",
+    "id": "gap-no-3pl-integration/history",
+    "title": "No 3PL integration",
+    "description": "Prepare a professional advisory report for no 3pl integration using the brief and evidence you provide. Review the findings, assumptions, and action plan before applying changes.",
+    "samples": []
+  },
+  {
+    "name": "GapNoAiDrivenFreightCostOptimization",
+    "id": "gap-no-ai-driven-freight-cost-optimization/history",
+    "title": "No AI-driven freight cost optimization",
+    "description": "Prepare a professional advisory report for no ai-driven freight cost optimization using the brief and evidence you provide. Review the findings, assumptions, and action plan before applying changes.",
+    "samples": []
+  },
+  {
+    "name": "GapNoAiDrivenNetworkOptimizationFacilitySourcing",
+    "id": "gap-no-ai-driven-network-optimization-facility-sourcing-point-placement/history",
+    "title": "No AI-driven network optimization (facility/sourcing point placement)",
+    "description": "Prepare a professional advisory report for no ai-driven network optimization (facility/sourcing point placement) using the brief and evidence you provide. Review the findings, assumptions, and action plan before applying changes.",
+    "samples": []
+  },
+  {
+    "name": "GapNoAuditLog",
+    "id": "gap-no-audit-log/history",
+    "title": "No audit log",
+    "description": "Prepare a professional advisory report for no audit log using the brief and evidence you provide. Review the findings, assumptions, and action plan before applying changes.",
+    "samples": []
+  },
+  {
+    "name": "GapNoCustomerPortalForShipmentVisibility",
+    "id": "gap-no-customer-portal-for-shipment-visibility/history",
+    "title": "No customer portal for shipment visibility",
+    "description": "Prepare a professional advisory report for no customer portal for shipment visibility using the brief and evidence you provide. Review the findings, assumptions, and action plan before applying changes.",
+    "samples": []
+  },
+  {
+    "name": "GapNoFreightCostAnalytics",
+    "id": "gap-no-freight-cost-analytics/history",
+    "title": "No freight cost analytics",
+    "description": "Prepare a professional advisory report for no freight cost analytics using the brief and evidence you provide. Review the findings, assumptions, and action plan before applying changes.",
+    "samples": []
+  },
+  {
+    "name": "GapNoIotSensorIngestionTemperatureHumidityFor",
+    "id": "gap-no-iot-sensor-ingestion-temperature-humidity-for-cold/history",
+    "title": "No IoT sensor ingestion (temperature, humidity for cold chain)",
+    "description": "Prepare a professional advisory report for no iot sensor ingestion (temperature, humidity for cold chain) using the brief and evidence you provide. Review the findings, assumptions, and action plan before applying changes.",
+    "samples": []
+  },
+  {
+    "name": "GapNoMultiTenantOperatorSeparation",
+    "id": "gap-no-multi-tenant-operator-separation/history",
+    "title": "No multi-tenant operator separation",
+    "description": "Prepare a professional advisory report for no multi-tenant operator separation using the brief and evidence you provide. Review the findings, assumptions, and action plan before applying changes.",
+    "samples": []
+  },
+  {
+    "name": "GapNoPredictiveQualityScoring",
+    "id": "gap-no-predictive-quality-scoring/history",
+    "title": "No predictive quality scoring",
+    "description": "Prepare a professional advisory report for no predictive quality scoring using the brief and evidence you provide. Review the findings, assumptions, and action plan before applying changes.",
+    "samples": []
+  },
+  {
+    "name": "GapNoWebhooksOrExternalNotifications",
+    "id": "gap-no-webhooks-or-external-notifications/history",
+    "title": "No webhooks or external notifications",
+    "description": "Prepare a professional advisory report for no webhooks or external notifications using the brief and evidence you provide. Review the findings, assumptions, and action plan before applying changes.",
+    "samples": []
+  }
+]

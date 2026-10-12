@@ -1,3 +1,4 @@
+import NativeAIControls from "../components/NativeAIControls.jsx";
 import GeneratedAiResponse from './GeneratedAiResponse';
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
@@ -87,7 +88,7 @@ export default function OptimizeLastMile() {
   };
 
   return (
-    <div style={styles.page}>
+    <NativeAIControls busy={loading} context="SupplyChainTracker"><div style={styles.page}>
       <h1 style={styles.title}><FiTruck color="#8b5cf6" /> Last-Mile Optimization</h1>
       <p style={styles.subtitle}>AI plans an optimized last-mile delivery sequence and resource allocation.</p>
 
@@ -95,19 +96,19 @@ export default function OptimizeLastMile() {
         <div style={styles.formGrid}>
           <div>
             <label style={styles.label}>Region</label>
-            <input style={styles.input} type="text" value={form.region} onChange={(e) => handleChange('region', e.target.value)} placeholder="e.g. NYC Metro, Bay Area" />
+            <input data-ai-field={"region"} style={styles.input} type="text" value={form.region} onChange={(e) => handleChange('region', e.target.value)} placeholder="e.g. NYC Metro, Bay Area" />
           </div>
           <div>
             <label style={styles.label}>Vehicle Count</label>
-            <input style={styles.input} type="number" min={1} max={500} value={form.vehicleCount} onChange={(e) => handleChange('vehicleCount', e.target.value)} />
+            <input data-ai-field={"vehicleCount"} style={styles.input} type="number" min={1} max={500} value={form.vehicleCount} onChange={(e) => handleChange('vehicleCount', e.target.value)} />
           </div>
           <div>
             <label style={styles.label}>Service Window</label>
-            <input style={styles.input} type="text" value={form.serviceWindow} onChange={(e) => handleChange('serviceWindow', e.target.value)} placeholder="08:00-18:00" />
+            <input data-ai-field={"serviceWindow"} style={styles.input} type="text" value={form.serviceWindow} onChange={(e) => handleChange('serviceWindow', e.target.value)} placeholder="08:00-18:00" />
           </div>
           <div>
             <label style={styles.label}>Priority</label>
-            <select style={styles.input} value={form.priority} onChange={(e) => handleChange('priority', e.target.value)}>
+            <select data-ai-field={"priority"} style={styles.input} value={form.priority} onChange={(e) => handleChange('priority', e.target.value)}>
               <option value="cost & on-time balance">Cost / On-time Balance</option>
               <option value="minimize cost">Minimize Cost</option>
               <option value="maximize on-time rate">Maximize On-Time Rate</option>
@@ -118,7 +119,7 @@ export default function OptimizeLastMile() {
         </div>
         <div style={{ marginTop: 14 }}>
           <label style={styles.label}>Constraints</label>
-          <textarea style={styles.textarea} rows={3} value={form.constraints} onChange={(e) => handleChange('constraints', e.target.value)} placeholder="e.g. cold chain stops first, residential after 17:00, max 8h shifts..." />
+          <textarea data-ai-field={"constraints"} style={styles.textarea} rows={3} value={form.constraints} onChange={(e) => handleChange('constraints', e.target.value)} placeholder="e.g. cold chain stops first, residential after 17:00, max 8h shifts..." />
         </div>
         <button type="submit" style={{ ...styles.button, opacity: loading ? 0.6 : 1 }} disabled={loading}>
           <FiCpu /> {loading ? 'Optimizing...' : 'Optimize Last-Mile'}
@@ -133,6 +134,6 @@ export default function OptimizeLastMile() {
           <GeneratedAiResponse response={result} />
         </div>
       )}
-    </div>
+    </div></NativeAIControls>
   );
 }

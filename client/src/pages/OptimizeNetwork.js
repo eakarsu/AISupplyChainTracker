@@ -1,3 +1,4 @@
+import NativeAIControls from "../components/NativeAIControls.jsx";
 import GeneratedAiResponse from './GeneratedAiResponse';
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
@@ -81,7 +82,7 @@ export default function OptimizeNetwork() {
   };
 
   return (
-    <div style={styles.page}>
+    <NativeAIControls busy={loading} context="SupplyChainTracker"><div style={styles.page}>
       <h1 style={styles.title}><FiMap color="#8b5cf6" /> Network Optimization</h1>
       <p style={styles.subtitle}>AI suggests facility/sourcing changes to optimize cost, service or resilience.</p>
 
@@ -89,7 +90,7 @@ export default function OptimizeNetwork() {
         <div style={styles.formGrid}>
           <div>
             <label style={styles.label}>Objective</label>
-            <select style={styles.input} value={form.objective} onChange={(e) => handleChange('objective', e.target.value)}>
+            <select data-ai-field={"objective"} style={styles.input} value={form.objective} onChange={(e) => handleChange('objective', e.target.value)}>
               <option value="cost">Minimize Cost</option>
               <option value="service">Maximize Service Level</option>
               <option value="resilience">Maximize Resilience</option>
@@ -99,16 +100,16 @@ export default function OptimizeNetwork() {
           </div>
           <div>
             <label style={styles.label}>Horizon (months)</label>
-            <input style={styles.input} type="number" min={1} max={60} value={form.horizon_months} onChange={(e) => handleChange('horizon_months', e.target.value)} />
+            <input data-ai-field={"horizon_months"} style={styles.input} type="number" min={1} max={60} value={form.horizon_months} onChange={(e) => handleChange('horizon_months', e.target.value)} />
           </div>
           <div>
             <label style={styles.label}>Constraints</label>
-            <input style={styles.input} type="text" value={form.constraints} onChange={(e) => handleChange('constraints', e.target.value)} placeholder="e.g. keep US presence" />
+            <input data-ai-field={"constraints"} style={styles.input} type="text" value={form.constraints} onChange={(e) => handleChange('constraints', e.target.value)} placeholder="e.g. keep US presence" />
           </div>
         </div>
         <div style={{ marginTop: 14 }}>
           <label style={styles.label}>Notes / Context</label>
-          <textarea style={styles.textarea} rows={3} value={form.notes} onChange={(e) => handleChange('notes', e.target.value)} placeholder="Strategic intent, capital limits, ESG goals..." />
+          <textarea data-ai-field={"notes"} style={styles.textarea} rows={3} value={form.notes} onChange={(e) => handleChange('notes', e.target.value)} placeholder="Strategic intent, capital limits, ESG goals..." />
         </div>
         <button type="submit" style={{ ...styles.button, opacity: loading ? 0.6 : 1 }} disabled={loading}>
           <FiCpu /> {loading ? 'Optimizing...' : 'Optimize Network'}
@@ -123,6 +124,6 @@ export default function OptimizeNetwork() {
           <GeneratedAiResponse response={result} />
         </div>
       )}
-    </div>
+    </div></NativeAIControls>
   );
 }
