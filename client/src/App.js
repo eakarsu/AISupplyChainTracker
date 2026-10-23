@@ -1,4 +1,5 @@
 import AIReportLibrary from "./components/AIReportLibrary";
+import FeaturePackPanel from './components/FeaturePackPanel';
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
@@ -134,6 +135,7 @@ function App() {
                 <Route path="/warehouses" element={<Warehouses />} />
                 <Route path="/compliance" element={<Compliance />} />
                 <Route path="/quality" element={<QualityControl />} />
+                <Route path="/tasks" element={<ProtectedRoute><FeaturePackPanel /></ProtectedRoute>} />
                 <Route path="/analytics" element={<Analytics />} />
                 <Route path="/fleet-agents" element={<FleetAgents />} />
                 <Route path="/shipment-map" element={<ShipmentMap />} />

@@ -83,7 +83,7 @@ function FormModal({ isOpen, onClose, title, fields, initialData, onSave }) {
 
   return (
     <div style={styles.overlay} onClick={onClose}>
-      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-modal="true" style={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div style={styles.header}>
           <div style={styles.title}>{title}</div>
           <button style={styles.closeBtn} onClick={onClose}>&times;</button>

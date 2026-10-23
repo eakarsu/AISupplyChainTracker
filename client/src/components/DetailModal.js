@@ -53,7 +53,7 @@ function DetailModal({ isOpen, onClose, title, fields, item, onEdit, onDelete })
 
   return (
     <div style={styles.overlay} onClick={onClose}>
-      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-modal="true" style={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div style={styles.header}>
           <div style={styles.title}>{title}</div>
           <button style={styles.closeBtn} onClick={onClose}>&times;</button>
@@ -69,7 +69,7 @@ function DetailModal({ isOpen, onClose, title, fields, item, onEdit, onDelete })
           ))}
         </div>
         <div style={styles.actions}>
-          <button style={styles.cancelBtn} onClick={onClose}>Close</button>
+          <button style={styles.cancelBtn} onClick={onClose}>Cancel</button>
           <button style={styles.editBtn} onClick={() => onEdit(item)}>Edit</button>
           <button style={styles.deleteBtn} onClick={() => onDelete(item.id)}
             onMouseEnter={(e) => { e.currentTarget.style.background = '#ef4444'; e.currentTarget.style.color = '#fff'; }}

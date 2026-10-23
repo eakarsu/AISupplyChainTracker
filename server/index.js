@@ -50,6 +50,7 @@ app.use('/api/compliance', authMiddleware, require('./routes/compliance'));
 app.use('/api/quality', authMiddleware, require('./routes/quality'));
 app.use('/api/analytics', authMiddleware, require('./routes/analytics'));
 app.use('/api/fleet-agents', authMiddleware, require('./routes/fleetAgents'));
+app.use('/api/tasks', authMiddleware, require('./routes/featurePack'));
 app.use('/api/detention-demurrage-exposure', authMiddleware, require('./routes/detentionDemurrageExposure'));
 app.use('/api/governed-supply-chain', require('./governance'));
 app.use('/api/governance', require('./governance'));

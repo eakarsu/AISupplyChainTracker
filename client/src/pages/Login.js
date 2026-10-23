@@ -64,17 +64,31 @@ function Login({ onLogin }) {
   const demoAvailable = process.env.REACT_APP_ENABLE_DEMO_CREDENTIAL_AUTOFILL === 'true'
     && Boolean(process.env.REACT_APP_DEMO_EMAIL && process.env.REACT_APP_DEMO_PASSWORD);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const submitLogin = async (loginEmail, loginPassword) => {
     setLoading(true);
     try {
-      const res = await API.post('/auth/login', { email, password });
+      const res = await API.post('/auth/login', { email: loginEmail, password: loginPassword });
       toast.success('Welcome back!');
       onLogin(res.data.token, res.data.user);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Login failed');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    await submitLogin(email, password);
+  };
+
+  const handleDemoLogin = async () => {
+    const demoEmail = process.env.REACT_APP_DEMO_EMAIL || '';
+    const demoPassword = process.env.REACT_APP_DEMO_PASSWORD || '';
+    setEmail(demoEmail);
+    setPassword(demoPassword);
+    if (demoEmail && demoPassword) {
+      await submitLogin(demoEmail, demoPassword);
     }
   };
 
@@ -105,7 +119,7 @@ function Login({ onLogin }) {
           </div>
           <button
             type="button"
-            onClick={() => { setEmail(process.env.REACT_APP_DEMO_EMAIL); setPassword(process.env.REACT_APP_DEMO_PASSWORD); }}
+            onClick={handleDemoLogin}
             disabled={loading || !demoAvailable}
             style={styles.fillBtn}
           >
